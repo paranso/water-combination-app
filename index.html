@@ -75,6 +75,10 @@
             padding: 6px;
             text-align: center;
         }
+        th:first-child, td:first-child {
+            min-width: 100px; /* 이름 열의 최소 너비 설정 */
+            text-align: left; /* 이름 열 왼쪽 정렬 */
+        }
         th {
             background-color: #00A0B0;
             color: white;
@@ -95,6 +99,18 @@
             cursor: pointer;
             font-size: 0.8em;
             width: auto;
+        }
+        .tested-badge {
+            color: #ff4d4d;
+            font-size: 0.65em;
+            background-color: rgba(255, 77, 77, 0.1);
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-right: 5px;
+            font-weight: bold;
+            vertical-align: middle;
+            border: 1px solid rgba(255, 77, 77, 0.3);
+            display: inline-block;
         }
         /* 비밀번호 관련 스타일 */
         .admin-btn {
@@ -384,7 +400,22 @@
             
             Object.values(waters).forEach(water => {
                 const row = table.insertRow();
-                row.insertCell(0).textContent = water.name;
+                const nameCell = row.insertCell(0);
+                
+                // 테스트된 물인지 확인 (딥스그린, 딥스블루, 딥스골드, 미원아이시스, 평창수)
+                const testedWaters = ["딥스그린", "딥스블루", "딥스골드", "미원아이시스", "평창수"];
+                
+                // 모든 이름이 동일한 위치에서 시작하도록 DOM 구조 생성
+                const badge = document.createElement('span');
+                badge.className = 'tested-badge';
+                badge.textContent = 'tested';
+                badge.style.visibility = testedWaters.includes(water.name) ? 'visible' : 'hidden';
+                nameCell.appendChild(badge);
+                
+                // 물 이름 추가 (모든 물에 동일한 간격 적용)
+                const nameText = document.createTextNode(" " + water.name);
+                nameCell.appendChild(nameText);
+                
                 row.insertCell(1).textContent = water.hardness.toFixed(2);
                 row.insertCell(2).textContent = water.alkalinity.toFixed(2);
                 
@@ -408,7 +439,22 @@
             
             Object.values(waters).forEach(water => {
                 const row = table.insertRow();
-                row.insertCell(0).textContent = water.name;
+                const nameCell = row.insertCell(0);
+                
+                // 테스트된 물인지 확인 (딥스그린, 딥스블루, 딥스골드, 미원아이시스, 평창수)
+                const testedWaters = ["딥스그린", "딥스블루", "딥스골드", "미원아이시스", "평창수"];
+                
+                // 모든 이름이 동일한 위치에서 시작하도록 DOM 구조 생성
+                const badge = document.createElement('span');
+                badge.className = 'tested-badge';
+                badge.textContent = 'tested';
+                badge.style.visibility = testedWaters.includes(water.name) ? 'visible' : 'hidden';
+                nameCell.appendChild(badge);
+                
+                // 물 이름 추가 (모든 물에 동일한 간격 적용)
+                const nameText = document.createTextNode(" " + water.name);
+                nameCell.appendChild(nameText);
+                
                 row.insertCell(1).textContent = water.hardness.toFixed(2);
                 row.insertCell(2).textContent = water.alkalinity.toFixed(2);
                 
