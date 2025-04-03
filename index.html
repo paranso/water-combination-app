@@ -94,6 +94,64 @@
             border-radius: 3px;
             cursor: pointer;
             font-size: 0.8em;
+            width: auto;
+        }
+        /* 비밀번호 관련 스타일 */
+        .admin-btn {
+            background-color: #FF7F50;
+            margin-top: 10px;
+        }
+        .password-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .password-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 280px;
+        }
+        .password-content h3 {
+            margin-top: 0;
+            color: #00A0B0;
+        }
+        .hidden {
+            display: none;
+        }
+        #passwordError {
+            color: red;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .tab-button {
+            flex: 1;
+            padding: 8px;
+            background-color: #ccc;
+            border: none;
+            cursor: pointer;
+        }
+        .tab-button.active {
+            background-color: #00A0B0;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
         }
     </style>
 </head>
@@ -133,91 +191,182 @@
                 <th>GH</th>
                 <th>KH</th>
                 <th>E상수</th>
-                <th>삭제</th>
             </tr>
         </table>
+        <button id="adminButton" class="admin-btn">물 관리</button>
     </div>
 
-    <div class="card">
-        <h2>새로운 물 추가</h2>
-        <div class="input-row">
-            <input type="text" id="newWaterName" placeholder="이름">
-            <input type="number" id="newWaterHardness" placeholder="GH" step="0.01">
-            <input type="number" id="newWaterAlkalinity" placeholder="KH" step="0.01">
+    <!-- 비밀번호 모달 -->
+    <div id="passwordModal" class="password-modal">
+        <div class="password-content">
+            <h3>비밀번호 입력</h3>
+            <input type="password" id="adminPassword" placeholder="비밀번호를 입력하세요">
+            <p id="passwordError" class="hidden">비밀번호가 올바르지 않습니다.</p>
+            <div class="input-row">
+                <button id="cancelPasswordBtn">취소</button>
+                <button id="submitPasswordBtn">확인</button>
+            </div>
         </div>
-        <button onclick="addNewWater()">추가</button>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    <!-- 관리자 패널 (비밀번호 확인 후 표시) -->
+    <div id="adminPanel" class="card hidden">
+        <h2>물 관리</h2>
+        
+        <div class="tab-buttons">
+            <button id="addTabBtn" class="tab-button active">추가</button>
+            <button id="deleteTabBtn" class="tab-button">삭제</button>
+        </div>
+        
+        <!-- 추가 탭 -->
+        <div id="addTab" class="tab-content active">
+            <h3>새로운 물 추가</h3>
+            <div class="input-row">
+                <input type="text" id="newWaterName" placeholder="이름">
+                <input type="number" id="newWaterHardness" placeholder="GH" step="0.01">
+                <input type="number" id="newWaterAlkalinity" placeholder="KH" step="0.01">
+            </div>
+            <button id="addWaterBtn">추가하기</button>
+        </div>
+        
+        <!-- 삭제 탭 -->
+        <div id="deleteTab" class="tab-content">
+            <h3>물 삭제</h3>
+            <table id="deleteWatersTable">
+                <tr>
+                    <th>이름</th>
+                    <th>GH</th>
+                    <th>KH</th>
+                    <th>삭제</th>
+                </tr>
+                <!-- 여기에 동적으로 삭제 테이블 내용이 추가됩니다 -->
+            </table>
+        </div>
+        
+        <button id="logoutBtn" class="admin-btn">관리자 모드 종료</button>
+    </div>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBDd9DGcZLwAKonvTz8swc5SRO3zR8OeCE",
-            authDomain: "water-blending.firebaseapp.com",
-            projectId: "water-blending",
-            storageBucket: "water-blending.appspot.com",
-            messagingSenderId: "1002642005094",
-            appId: "1:1002642005094:web:4be59e6666d596e45321a7",
-            measurementId: "G-SZYC94S14Y"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
+    <script>
+        // 로컬 스토리지 키
+        const WATERS_STORAGE_KEY = 'waterBlendingData';
+        
+        // 관리자 비밀번호
+        const ADMIN_PASSWORD = "water1234";
+        let isAdminMode = false;
+        
+        // 물 데이터 객체
         let waters = {};
-
-        async function addNewWater() {
-            const name = document.getElementById('newWaterName').value;
-            const hardness = parseFloat(document.getElementById('newWaterHardness').value);
-            const alkalinity = parseFloat(document.getElementById('newWaterAlkalinity').value);
-
-            if (!name || isNaN(hardness) || isNaN(alkalinity)) {
-                alert("모든 필드를 올바르게 입력해주세요.");
-                return;
-            }
-
-            try {
-                const docRef = await addDoc(collection(db, "waters"), {
-                    name,
-                    hardness,
-                    alkalinity
-                });
-                console.log("Document written with ID: ", docRef.id);
-                fetchWaters();
-                document.getElementById('newWaterName').value = '';
-                document.getElementById('newWaterHardness').value = '';
-                document.getElementById('newWaterAlkalinity').value = '';
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                alert("물 추가 중 오류가 발생했습니다.");
+        
+        // DOM 요소 접근
+        const passwordModal = document.getElementById('passwordModal');
+        const adminButton = document.getElementById('adminButton');
+        const submitPasswordBtn = document.getElementById('submitPasswordBtn');
+        const cancelPasswordBtn = document.getElementById('cancelPasswordBtn');
+        const passwordError = document.getElementById('passwordError');
+        const adminPanel = document.getElementById('adminPanel');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const addWaterBtn = document.getElementById('addWaterBtn');
+        
+        // 탭 관련 요소
+        const addTabBtn = document.getElementById('addTabBtn');
+        const deleteTabBtn = document.getElementById('deleteTabBtn');
+        const addTab = document.getElementById('addTab');
+        const deleteTab = document.getElementById('deleteTab');
+        
+        // 이벤트 리스너 설정
+        adminButton.addEventListener('click', () => {
+            passwordModal.style.display = 'flex';
+            document.getElementById('adminPassword').value = '';
+            passwordError.classList.add('hidden');
+        });
+        
+        submitPasswordBtn.addEventListener('click', checkPassword);
+        
+        cancelPasswordBtn.addEventListener('click', () => {
+            passwordModal.style.display = 'none';
+        });
+        
+        logoutBtn.addEventListener('click', () => {
+            isAdminMode = false;
+            adminPanel.classList.add('hidden');
+        });
+        
+        addWaterBtn.addEventListener('click', addNewWater);
+        
+        // 탭 전환 이벤트 리스너
+        addTabBtn.addEventListener('click', () => {
+            addTabBtn.classList.add('active');
+            deleteTabBtn.classList.remove('active');
+            addTab.classList.add('active');
+            deleteTab.classList.remove('active');
+        });
+        
+        deleteTabBtn.addEventListener('click', () => {
+            deleteTabBtn.classList.add('active');
+            addTabBtn.classList.remove('active');
+            deleteTab.classList.add('active');
+            addTab.classList.remove('active');
+            updateDeleteTable();
+        });
+        
+        // 초기 데이터 로드
+        loadWaters();
+        
+        // 비밀번호 확인 함수
+        function checkPassword() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === ADMIN_PASSWORD) {
+                isAdminMode = true;
+                passwordModal.style.display = 'none';
+                adminPanel.classList.remove('hidden');
+                passwordError.classList.add('hidden');
+                
+                // 기본 탭 보이기
+                addTabBtn.classList.add('active');
+                deleteTabBtn.classList.remove('active');
+                addTab.classList.add('active');
+                deleteTab.classList.remove('active');
+                
+                // 삭제 테이블 업데이트
+                updateDeleteTable();
+            } else {
+                passwordError.classList.remove('hidden');
             }
         }
-
-        async function fetchWaters() {
-            const querySnapshot = await getDocs(collection(db, "waters"));
-            waters = {};
-            querySnapshot.forEach((doc) => {
-                waters[doc.id] = { ...doc.data(), id: doc.id };
-            });
-            if (Object.keys(waters).length === 0) {
-                const defaultWaters = [
-                    { name: "딥스그린", hardness: 118.24, alkalinity: 5.00 },
-                    { name: "딥스블루", hardness: 169.58, alkalinity: 17.85 },
-                    { name: "딥스골드", hardness: 223.13, alkalinity: 15.62 },
-                    { name: "미원아이시스", hardness: 66.94, alkalinity: 49.09 },
-                    { name: "평창수", hardness: 62.48, alkalinity: 44.63 }
-                ];
-                for (const water of defaultWaters) {
-                    await addDoc(collection(db, "waters"), water);
-                }
-                await fetchWaters();
+        
+        // 로컬 스토리지에서 물 데이터 로드
+        function loadWaters() {
+            const storedData = localStorage.getItem(WATERS_STORAGE_KEY);
+            
+            if (storedData) {
+                waters = JSON.parse(storedData);
+                updateWaterList();
+                populateWaterOptions();
             } else {
+                // 기본 물 데이터 설정
+                waters = {
+                    "1": { id: "1", name: "딥스그린", hardness: 118.24, alkalinity: 5.00 },
+                    "2": { id: "2", name: "딥스블루", hardness: 169.58, alkalinity: 17.85 },
+                    "3": { id: "3", name: "딥스골드", hardness: 223.13, alkalinity: 15.62 },
+                    "4": { id: "4", name: "미원아이시스", hardness: 66.94, alkalinity: 49.09 },
+                    "5": { id: "5", name: "평창수", hardness: 62.48, alkalinity: 44.63 }
+                };
+                
+                // 로컬 스토리지에 저장
+                saveWaters();
+                
+                // UI 업데이트
                 updateWaterList();
                 populateWaterOptions();
             }
         }
-
+        
+        // 로컬 스토리지에 물 데이터 저장
+        function saveWaters() {
+            localStorage.setItem(WATERS_STORAGE_KEY, JSON.stringify(waters));
+        }
+        
+        // 물 테이블 업데이트 (메인 목록)
         function updateWaterList() {
             const table = document.getElementById('watersTable');
             table.innerHTML = `
@@ -226,16 +375,41 @@
                     <th>GH</th>
                     <th>KH</th>
                     <th>E상수</th>
-                    <th>삭제</th>
                 </tr>
             `;
+            
             Object.values(waters).forEach(water => {
                 const row = table.insertRow();
                 row.insertCell(0).textContent = water.name;
                 row.insertCell(1).textContent = water.hardness.toFixed(2);
                 row.insertCell(2).textContent = water.alkalinity.toFixed(2);
-                row.insertCell(3).textContent = (water.hardness / water.alkalinity).toFixed(1);
-                const deleteCell = row.insertCell(4);
+                
+                // E상수 계산 (GH/KH)
+                const eValue = water.hardness / water.alkalinity;
+                row.insertCell(3).textContent = eValue.toFixed(1);
+            });
+        }
+        
+        // 삭제 테이블 업데이트 (관리자 패널)
+        function updateDeleteTable() {
+            const table = document.getElementById('deleteWatersTable');
+            table.innerHTML = `
+                <tr>
+                    <th>이름</th>
+                    <th>GH</th>
+                    <th>KH</th>
+                    <th>삭제</th>
+                </tr>
+            `;
+            
+            Object.values(waters).forEach(water => {
+                const row = table.insertRow();
+                row.insertCell(0).textContent = water.name;
+                row.insertCell(1).textContent = water.hardness.toFixed(2);
+                row.insertCell(2).textContent = water.alkalinity.toFixed(2);
+                
+                // 삭제 버튼
+                const deleteCell = row.insertCell(3);
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = '삭제';
                 deleteButton.className = 'delete-btn';
@@ -243,77 +417,140 @@
                 deleteCell.appendChild(deleteButton);
             });
         }
-
-        async function deleteWater(id) {
-            if (confirm('정말로 이 물을 삭제하시겠습니까?')) {
-                try {
-                    await deleteDoc(doc(db, "waters", id));
-                    console.log("Document successfully deleted!");
-                    fetchWaters();
-                } catch (e) {
-                    console.error("Error removing document: ", e);
-                    alert("물 삭제 중 오류가 발생했습니다.");
-                }
-            }
-        }
-
+        
+        // 드롭다운 옵션 업데이트
         function populateWaterOptions() {
             const waterA = document.getElementById('waterA');
             const waterB = document.getElementById('waterB');
+            
             waterA.innerHTML = '<option value="" disabled selected>물1</option>';
             waterB.innerHTML = '<option value="" disabled selected>물2</option>';
-
+            
             Object.entries(waters).forEach(([id, water]) => {
                 const optionA = document.createElement('option');
                 optionA.value = id;
                 optionA.textContent = water.name;
                 waterA.appendChild(optionA);
-
+                
                 const optionB = document.createElement('option');
                 optionB.value = id;
                 optionB.textContent = water.name;
                 waterB.appendChild(optionB);
             });
         }
-
+        
+        // 새 물 추가
+        function addNewWater() {
+            if (!isAdminMode) {
+                alert("권한이 없습니다. 관리자 모드에서만 물을 추가할 수 있습니다.");
+                return;
+            }
+            
+            const name = document.getElementById('newWaterName').value;
+            const hardness = parseFloat(document.getElementById('newWaterHardness').value);
+            const alkalinity = parseFloat(document.getElementById('newWaterAlkalinity').value);
+            
+            if (!name || isNaN(hardness) || isNaN(alkalinity)) {
+                alert("모든 필드를 올바르게 입력해주세요.");
+                return;
+            }
+            
+            // 새 ID 생성
+            let maxId = 0;
+            Object.keys(waters).forEach(id => {
+                const numId = parseInt(id);
+                if (numId > maxId) maxId = numId;
+            });
+            
+            const newId = (maxId + 1).toString();
+            
+            // 새 물 추가
+            waters[newId] = {
+                id: newId,
+                name: name,
+                hardness: hardness,
+                alkalinity: alkalinity
+            };
+            
+            // 저장 및 UI 업데이트
+            saveWaters();
+            updateWaterList();
+            populateWaterOptions();
+            updateDeleteTable();
+            
+            // 입력 필드 초기화
+            document.getElementById('newWaterName').value = '';
+            document.getElementById('newWaterHardness').value = '';
+            document.getElementById('newWaterAlkalinity').value = '';
+            
+            alert("새로운 물이 추가되었습니다!");
+        }
+        
+        // 물 삭제
+        function deleteWater(id) {
+            if (!isAdminMode) {
+                alert("권한이 없습니다. 관리자 모드에서만 물을 삭제할 수 있습니다.");
+                return;
+            }
+            
+            if (confirm('정말로 이 물을 삭제하시겠습니까?')) {
+                // 물 삭제
+                delete waters[id];
+                
+                // 저장 및 UI 업데이트
+                saveWaters();
+                updateWaterList();
+                populateWaterOptions();
+                updateDeleteTable();
+                
+                alert("물이 삭제되었습니다.");
+            }
+        }
+        
+        // 혼합 계산
         function calculateMix() {
             const waterAId = document.getElementById("waterA").value;
             const waterBId = document.getElementById("waterB").value;
             const targetE = parseFloat(document.getElementById("eValue").value);
             const totalWeight = parseFloat(document.getElementById("totalWeight").value);
-
+            
             const waterA = waters[waterAId];
             const waterB = waters[waterBId];
-
+            
             if (!waterA || !waterB || isNaN(targetE) || isNaN(totalWeight)) {
                 alert("모든 필드를 올바르게 선택/입력해주세요.");
                 return;
             }
-
+            
             const a = waterA.hardness - targetE * waterA.alkalinity;
             const b = waterB.hardness - targetE * waterB.alkalinity;
-
+            
+            if (Math.abs(b - a) < 0.001) {
+                alert("선택한 두 물로는 목표 E상수를 달성할 수 없습니다.");
+                return;
+            }
+            
             const weightA = (b * totalWeight) / (b - a);
             const weightB = totalWeight - weightA;
-
+            
+            // 음수 무게 확인
+            if (weightA < 0 || weightB < 0) {
+                alert("선택한 두 물로는 목표 E상수를 달성할 수 없습니다.");
+                return;
+            }
+            
             const resultHardness = (waterA.hardness * weightA + waterB.hardness * weightB) / totalWeight;
             const resultAlkalinity = (waterA.alkalinity * weightA + waterB.alkalinity * weightB) / totalWeight;
-
+            
             document.getElementById("waterAName").textContent = waterA.name;
             document.getElementById("waterAWeight").textContent = weightA.toFixed(2) + "g";
             document.getElementById("waterBName").textContent = waterB.name;
             document.getElementById("waterBWeight").textContent = weightB.toFixed(2) + "g";
             document.getElementById("resultHardness").textContent = resultHardness.toFixed(2);
             document.getElementById("resultAlkalinity").textContent = resultAlkalinity.toFixed(2);
-
+            
             document.getElementById("result").style.display = "block";
         }
-
-        fetchWaters();
-
-        window.addNewWater = addNewWater;
-        window.calculateMix = calculateMix;
-        window.deleteWater = deleteWater;
     </script>
 </body>
 </html>
